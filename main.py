@@ -5,8 +5,6 @@ from multiprocessing.pool import ThreadPool
 import db
 from db import TABLE_NAME
 from hospital_data_wrangler import wrangle_hospital_year_excel
-from oshpd_data_downloader import download_one_hospital_year_data, get_missing_records_of_one_hospital, \
-    shutdown_browsers
 
 # add current dir to env PATH so that selenium can find Firefox driver
 os.environ['PATH'] += ":" + os.path.dirname(os.path.relpath(__file__))
@@ -18,10 +16,13 @@ HOSPITAL_OPTION_LENGTH = 488
 POOL_SIZE = 8
 
 # variables/states shared among multithreads, mostly used for retry logic
-# (if one hospital/year data downloading failed, it'll be retried later)
+# (if one hospital/year data downloading failed, it'll be retried later);
 cols_already_added = set()
 missing_hospital_ids = []
 failed_records = []
+
+from oshpd_data_downloader import download_one_hospital_year_data, get_missing_records_of_one_hospital, \
+    shutdown_browsers
 
 
 def write_hospital_year_data_into_db(excel_content):
@@ -65,8 +66,8 @@ def write_hospital_year_data_into_db(excel_content):
 def get_missing_records():
     pool = ThreadPool(POOL_SIZE)
     try:
-        res = pool.imap_unordered(get_missing_records_of_one_hospital, range(HOSPITAL_OPTION_LENGTH))
-        list(res)
+        for missing in pool.imap_unordered(get_missing_records_of_one_hospital, range(HOSPITAL_OPTION_LENGTH)):
+            missing_hospital_ids.extend(missing)
     finally:
         pool.close()
 
@@ -76,7 +77,9 @@ def get_missing_records():
 
 
 def process_one_hospital_year(args):
-    raw_data = download_one_hospital_year_data(args)
+    raw_data, fail = download_one_hospital_year_data(args)
+    if fail:
+        failed_records.append(fail)
     if raw_data:
         write_hospital_year_data_into_db(raw_data)
 

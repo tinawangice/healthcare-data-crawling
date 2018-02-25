@@ -15,3 +15,4 @@ SQLAlchemy==1.2.0b2
 tldextract==2.1.0
 urllib3==1.22
 xlrd==1.1.0
+PyMySQL==0.7.11

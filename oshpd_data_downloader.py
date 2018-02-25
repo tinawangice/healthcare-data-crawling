@@ -4,7 +4,6 @@ import time
 import traceback
 from threading import Lock
 
-from crawl_inpatient_data import failed_records, missing_hospital_ids
 from seleniumrequests import Firefox as browser_type
 
 import db
@@ -87,11 +86,12 @@ def download_one_hospital_year_data(args):
             response = browser.request('GET', download_url, find_window_handle_timeout=300,
                                        page_load_timeout=300).content
             # stop any for loop; just return
-            return response
+            return response, None
+        return None, None
     except:
         logging.error("Error when handling hospital-year: %s - %s - %s; Error: %s" % (
             hospital_option_idx, expected_hospital_id, year, traceback.format_exc()))
-        failed_records.append(map(int, args))
+        return None, map(int, args)
     finally:
         # return the browser to the pool
         add_browser(browser)
@@ -116,6 +116,7 @@ def get_browser():
 
 def get_missing_records_of_one_hospital(hospital_option_idx):
     browser = get_browser()
+    missing_hospital_ids = []
     try:
         browser.get('http://report.oshpd.ca.gov/Index.aspx?did=PID&rid=25&FACILITYKEY=0&REPORTYEAR=0')
 
@@ -161,6 +162,7 @@ def get_missing_records_of_one_hospital(hospital_option_idx):
         logging.error(traceback.format_exc())
     finally:
         add_browser(browser)
+    return missing_hospital_ids
 
 
 def get_all_hospitals_already_in_db():
